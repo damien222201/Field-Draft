@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FieldDraft — a CV catalog for your trade</title>
+<!--
+  FieldDraft
+  Free & open-source. Single-file, no build step, no API keys, no backend.
+  MIT License — do whatever you like with it.
+
+  What it does:
+  1. You type your occupation. It's matched against a small catalog of fields.
+  2. You get real search links (Google/Bing/Images) generated for that exact
+     occupation, plus a short list of reputable general resume-example hubs —
+     so you can go look at real templates in your field.
+  3. Below that, a builder tailored to your field's vocabulary (its section
+     names and hints change per field) where you type in your own specifics.
+  4. Live preview → print to PDF, or download a standalone HTML copy.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper: #E7E2CF;
+    --paper-card: #FBF9F2;
+    --ink: #21261F;
+    --ink-soft: #55503F;
+    --desk: #33301F;
+    --desk-line: #4A4732;
+    --brass: #B8862E;
+    --brass-bright:#D6A445;
+    --teal: #2F5D62;
+    --hair: rgba(33,38,31,0.14);
+    --hair-light: rgba(251,249,242,0.16);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'IBM Plex Sans', sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{ background: var(--brass); color:#fff; }
+  a{ color:var(--teal); }
+
+  .app{
+    display:grid;
+    grid-template-columns: 340px 1fr;
+    min-height:100vh;
+  }
+  @media (max-width: 880px){
+    .app{ grid-template-columns: 1fr; }
+  }
+
+  /* ---------- LEFT: the catalog / desk drawer ---------- */
+  .catalog{
+    background:var(--desk);
+    color:#EFE9D6;
+    padding:28px 24px 40px;
+    position:relative;
+  }
+  .catalog::after{
+    content:"";
+    position:absolute; top:0; right:0; bottom:0; width:6px;
+    background:repeating-linear-gradient(to bottom, var(--brass) 0 10px, transparent 10px 20px);
+    opacity:.55;
+  }
+  .brand{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:26px;
+    letter-spacing:-0.01em;
+    margin:0 0 2px;
+  }
+  .brand small{
+    display:block;
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:500;
+    font-size:10.5px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--brass-bright);
+    margin-top:6px;
+  }
+  .tagline{
+    font-size:13px;
+    line-height:1.5;
+    color:#C9C2A8;
+    margin:14px 0 28px;
+    border-left:2px solid var(--desk-line);
+    padding-left:12px;
+  }
+
+  .field-label{
+    font-family:'IBM Plex Mono', monospace;
+    text-transform:uppercase;
+    font-size:10.5px;
+    letter-spacing:.14em;
+    color:#B7AF8E;
+    margin:0 0 8px;
+  }
+
+  .occ-input-wrap{ margin-bottom:22px; }
+  #occInput{
+    width:100%;
+    background:#2A2818;
+    border:1px solid var(--desk-line);
+    color:#F5F1E2;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:14.5px;
+    padding:11px 12px;
+    border-radius:2px;
+    outline:none;
+  }
+  #occInput::placeholder{ color:#7C7658; }
+  #occInput:focus{ border-color:var(--brass); }
+
+  .match-line{
+    margin-top:9px;
+    font-size:12px;
+    font-family:'IBM Plex Mono', monospace;
+    color:#C9C2A8;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .match-code{
+    background:var(--brass);
+    color:#241C0A;
+    font-weight:600;
+    padding:2px 6px;
+    border-radius:2px;
+    letter-spacing:.03em;
+  }
+
+  .drawer-tabs{
+    list-style:none; margin:0 0 26px; padding:0;
+    display:flex; flex-wrap:wrap; gap:6px;
+  }
+  .drawer-tabs button{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:.05em;
+    background:transparent;
+    border:1px solid var(--desk-line);
+    color:#C9C2A8;
+    padding:6px 9px;
+    border-radius:2px;
+    cursor:pointer;
+    transition:all .15s ease;
+  }
+  .drawer-tabs button:hover{ border-color:var(--brass); color:#F5F1E2; }
+  .drawer-tabs button.active{
+    background:var(--brass);
+    border-color:var(--brass);
+    color:#241C0A;
+    font-weight:600;
+  }
+
+  .lookup-block{
+    margin-bottom:26px;
+  }
+  .lookup-block h3{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    text-transform:uppercase;
+    letter-spacing:.14em;
+    color:#B7AF8E;
+    margin:0 0 10px;
+    padding-top:16px;
+    border-top:1px solid var(--desk-line);
+  }
+  .link-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:7px; }
+  .link-list a{
+    display:flex; justify-content:space-between; align-items:center; gap:8px;
+    color:#EFE9D6;
+    text-decoration:none;
+    font-size:13px;
+    padding:8px 10px;
+    background:#2A2818;
+    border:1px solid var(--desk-line);
+    border-radius:2px;
+    transition: border-color .15s ease, transform .1s ease;
+  }
+  .link-list a:hover{ border-color:var(--brass); }
+  .link-list a span.arrow{ color:var(--brass-bright); font-family:'IBM Plex Mono',monospace; }
+
+  .hint-note{
+    font-size:11.5px;
+    color:#948C6E;
+    line-height:1.5;
+    margin-top:4px;
+  }
+
+  /* ---------- RIGHT: the desk / builder + preview ---------- */
+  .desk-area{
+    padding:40px clamp(20px, 5vw, 64px) 80px;
+  }
+  .desk-header{
+    display:flex; align-items:flex-end; justify-content:space-between;
+    gap:20px; flex-wrap:wrap;
+    margin-bottom:28px;
+    border-bottom:2px solid var(--ink);
+    padding-bottom:16px;
+  }
+  .desk-header h1{
+    font-family:'Fraunces', serif;
+    font-weight:500;
+    font-size:clamp(24px, 3vw, 32px);
+    margin:0;
+  }
+  .desk-header .subhead{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+  }
+  .actions{ display:flex; gap:10px; flex-wrap:wrap; }
+  .btn{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    letter-spacing:.04em;
+    padding:10px 16px;
+    border-radius:2px;
+    border:1px solid var(--ink);
+    background:transparent;
+    color:var(--ink);
+    cursor:pointer;
+  }
+  .btn.primary{ background:var(--ink); color:var(--paper-card); }
+  .btn:hover{ background:var(--ink); color:var(--paper-card); }
+
+  .builder{
+    display:grid;
+    grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+    gap:36px;
+    align-items:start;
+  }
+  @media (max-width: 1100px){
+    .builder{ grid-template-columns: 1fr; }
+  }
+
+  .form-col section{
+    margin-bottom:26px;
+  }
+  .form-col h2{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.12em;
+    color:var(--ink-soft);
+    margin:0 0 12px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .form-col h2::before{
+    content:"";
+    width:14px; height:1px; background:var(--brass);
+    display:inline-block;
+  }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  label{
+    display:block;
+    font-size:11.5px;
+    color:var(--ink-soft);
+    margin-bottom:4px;
+  }
+  input[type=text], input[type=email], input[type=tel], input[type=url], textarea{
+    width:100%;
+    font-family:'IBM Plex Sans', sans-serif;
+    font-size:14px;
+    padding:9px 10px;
+    border:1px solid var(--hair);
+    background:var(--paper-card);
+    border-radius:2px;
+    color:var(--ink);
+    outline:none;
+    margin-bottom:12px;
+  }
+  input:focus, textarea:focus{ border-color:var(--brass); }
+  textarea{ resize:vertical; min-height:70px; }
+  .field-hint{ font-size:11px; color:#8A8272; margin:-8px 0 12px; }
+
+  .entry-card{
+    border:1px solid var(--hair);
+    background:var(--paper-card);
+    border-radius:2px;
+    padding:14px;
+    margin-bottom:12px;
+    position:relative;
+  }
+  .entry-card .remove{
+    position:absolute; top:10px; right:10px;
+    background:none; border:none; cursor:pointer;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px; color:#A34B3A;
+  }
+  .add-entry{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    background:none;
+    border:1px dashed var(--ink-soft);
+    color:var(--ink-soft);
+    padding:8px 12px;
+    border-radius:2px;
+    cursor:pointer;
+    width:100%;
+  }
+  .add-entry:hover{ border-color:var(--brass); color:var(--ink); }
+
+  /* ---------- Preview: the "index card" CV page ---------- */
+  .preview-col{ position:sticky; top:24px; }
+  .preview-frame{
+    background:#DCD6BF;
+    padding:18px;
+    border-radius:3px;
+  }
+  .stamp{
+    display:flex; justify-content:space-between; align-items:center;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin-bottom:8px;
+  }
+  .stamp .code{
+    background:var(--teal); color:#fff; padding:2px 7px; border-radius:2px;
+    letter-spacing:.05em;
+  }
+  #cv{
+    background:var(--paper-card);
+    box-shadow:0 8px 24px rgba(0,0,0,0.18);
+    padding:42px 40px;
+    min-height:800px;
+    font-family:'IBM Plex Sans', sans-serif;
+  }
+  #cv h1.name{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:30px;
+    margin:0 0 2px;
+    color:var(--ink);
+  }
+  #cv .role{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--teal);
+    margin-bottom:10px;
+  }
+  #cv .contact-line{
+    font-size:12.5px; color:var(--ink-soft);
+    margin-bottom:22px;
+    display:flex; flex-wrap:wrap; gap:4px 12px;
+  }
+  #cv .contact-line span:not(:last-child)::after{ content:"·"; margin-left:12px; color:#C9C2A8; }
+  #cv section{ margin-bottom:20px; }
+  #cv section:empty{ display:none; }
+  #cv h3.sec{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--brass);
+    border-bottom:1px solid var(--hair);
+    padding-bottom:5px;
+    margin:0 0 10px;
+  }
+  #cv .summary-text{ font-size:13.5px; line-height:1.6; color:var(--ink); }
+  #cv .exp-item, #cv .edu-item, #cv .extra-item{ margin-bottom:12px; }
+  #cv .row-between{ display:flex; justify-content:space-between; gap:10px; font-size:13.5px; }
+  #cv .title-strong{ font-weight:600; }
+  #cv .meta{ font-family:'IBM Plex Mono', monospace; font-size:10.5px; color:var(--ink-soft); white-space:nowrap; }
+  #cv .desc{ font-size:13px; color:var(--ink-soft); margin-top:3px; line-height:1.55; white-space:pre-line;}
+  #cv .skill-chips{ display:flex; flex-wrap:wrap; gap:6px; }
+  #cv .chip{
+    font-size:11.5px;
+    font-family:'IBM Plex Mono', monospace;
+    background:#EFE9D6;
+    border:1px solid var(--hair);
+    padding:3px 9px;
+    border-radius:2px;
+    color:var(--ink);
+  }
+  #cv .empty-state{
+    color:#A9A38B; font-size:13px; font-style:italic;
+  }
+
+  footer.credit{
+    max-width:1400px;
+    margin:36px auto 0;
+    text-align:center;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--ink-soft);
+  }
+  footer.credit a{ color:var(--teal); }
+
+  @media print{
+    body *{ visibility:hidden; }
+    #cv, #cv *{ visibility:visible; }
+    #cv{
+      position:absolute; left:0; top:0; width:100%;
+      box-shadow:none; padding:0;
+    }
+  }
+
+  :focus-visible{ outline:2px solid var(--brass); outline-offset:2px; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ================= LEFT: CATALOG ================= -->
+  <aside class="catalog">
+    <p class="brand">FieldDraft
+      <small>CV catalog &amp; drafting desk</small>
+    </p>
+    <p class="tagline">Look up a trade, find how the field actually writes its CVs, then draft your own beside it — free, open source, nothing sent anywhere.</p>
+
+    <div class="occ-input-wrap">
+      <p class="field-label">01 — Your occupation</p>
+      <input type="text" id="occInput" placeholder="e.g. ICU nurse, backend developer, electrician…" autocomplete="off">
+      <div class="match-line" id="matchLine"></div>
+    </div>
+
+    <ul class="drawer-tabs" id="drawerTabs"></ul>
+
+    <div class="lookup-block">
+      <h3>02 — Search real examples</h3>
+      <ul class="link-list" id="searchLinks"></ul>
+      <p class="hint-note">Opens in a new tab. These are live search results for your exact occupation — not scraped or embedded here.</p>
+    </div>
+
+    <div class="lookup-block">
+      <h3>03 — Reputable template hubs</h3>
+      <ul class="link-list" id="curatedLinks"></ul>
+      <p class="hint-note">General resume-example libraries you can browse by field once you're there.</p>
+    </div>
+  </aside>
+
+  <!-- ================= RIGHT: DESK ================= -->
+  <main class="desk-area">
+    <div class="desk-header">
+      <div>
+        <p class="subhead" id="deskSubhead">General / Professional draft</p>
+        <h1>Draft your CV</h1>
+      </div>
+      <div class="actions">
+        <button class="btn" id="downloadBtn">Download HTML</button>
+        <button class="btn primary" id="printBtn">Print / Save PDF</button>
+      </div>
+    </div>
+
+    <div class="builder">
+      <!-- FORM -->
+      <div class="form-col">
+
+        <section>
+          <h2>Contact</h2>
+          <div class="grid2">
+            <div><label for="fName">Full name</label><input type="text" id="fName" placeholder="Jordan Achebe"></div>
+            <div><label for="fRole">Target title</label><input type="text" id="fRole" placeholder="Backend Developer"></div>
+          </div>
+          <div class="grid2">
+            <div><label for="fEmail">Email</label><input type="email" id="fEmail" placeholder="jordan@email.com"></div>
+            <div><label for="fPhone">Phone</label><input type="tel" id="fPhone" placeholder="+234 800 000 0000"></div>
+          </div>
+          <div class="grid2">
+            <div><label for="fLocation">Location</label><input type="text" id="fLocation" placeholder="Lagos, Nigeria"></div>
+            <div><label for="fLink">Portfolio / LinkedIn / GitHub</label><input type="url" id="fLink" placeholder="github.com/you"></div>
+          </div>
+        </section>
+
+        <section>
+          <h2 id="summaryLabel">Professional Summary</h2>
+          <textarea id="fSummary" placeholder=""></textarea>
+          <p class="field-hint" id="summaryHint"></p>
+        </section>
+
+        <section>
+          <h2 id="expLabel">Experience</h2>
+          <div id="expList"></div>
+          <button class="add-entry" id="addExp" type="button">+ Add experience</button>
+        </section>
+
+        <section>
+          <h2>Education</h2>
+          <div id="eduList"></div>
+          <button class="add-entry" id="addEdu" type="button">+ Add education</button>
+        </section>
+
+        <section>
+          <h2 id="skillsLabel">Skills</h2>
+          <textarea id="fSkills" placeholder=""></textarea>
+          <p class="field-hint" id="skillsHint"></p>
+        </section>
+
+        <section>
+          <h2 id="extraLabel">Certifications &amp; Extras</h2>
+          <textarea id="fExtra" placeholder=""></textarea>
+          <p class="field-hint" id="extraHint"></p>
+        </section>
+
+      </div>
+
+      <!-- PREVIEW -->
+      <div class="preview-col">
+        <div class="preview-frame">
+          <div class="stamp">
+            <span>Drafting desk — live preview</span>
+            <span class="code" id="catCode">GEN-00</span>
+          </div>
+          <div id="cv">
+            <h1 class="name" id="pvName">Your Name</h1>
+            <p class="role" id="pvRole">Target Title</p>
+            <div class="contact-line" id="pvContact"></div>
+
+            <section id="pvSummarySec">
+              <h3 class="sec" id="pvSummaryLabel">Professional Summary</h3>
+              <p class="summary-text" id="pvSummary"></p>
+            </section>
+
+            <section id="pvExpSec">
+              <h3 class="sec" id="pvExpLabel">Experience</h3>
+              <div id="pvExpList"></div>
+            </section>
+
+            <section id="pvEduSec">
+              <h3 class="sec">Education</h3>
+              <div id="pvEduList"></div>
+            </section>
+
+            <section id="pvSkillsSec">
+              <h3 class="sec" id="pvSkillsLabel">Skills</h3>
+              <div class="skill-chips" id="pvSkills"></div>
+            </section>
+
+            <section id="pvExtraSec">
+              <h3 class="sec" id="pvExtraLabel">Certifications &amp; Extras</h3>
+              <p class="summary-text" id="pvExtra"></p>
+            </section>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="credit">FieldDraft — free &amp; open source, MIT licensed. No accounts, no servers, no tracking. Your data never leaves this page.</footer>
+  </main>
+</div>
+
+<script>
+(function(){
+
+  // ---------------- CATEGORY CATALOG ----------------
+  const CATEGORIES = [
+    {
+      id:"tech", code:"TC-01", name:"Technology & Software",
+      keywords:["developer","engineer","software","programmer","backend","frontend","full stack","devops","data scientist","data analyst","it support","sysadmin","qa","cybersecurity","cloud","product manager","ux","ui designer"],
+      labels:{
+        summary:"Technical Summary",
+        summaryHint:"2–3 lines: stack, years of experience, the kind of systems you build.",
+        exp:"Experience",
+        skills:"Technical Skills",
+        skillsHint:"Languages, frameworks, tools, cloud platforms — comma separated.",
+        extra:"Projects & Certifications",
+        extraHint:"Open-source projects, side projects, AWS/Azure certs, etc."
+      }
+    },
+    {
+      id:"health", code:"MD-02", name:"Healthcare & Medical",
+      keywords:["nurse","doctor","physician","medical","clinical","pharmacist","therapist","paramedic","caregiver","dentist","radiographer","surgeon","midwife","healthcare"],
+      labels:{
+        summary:"Clinical Summary",
+        summaryHint:"Your specialty, years of clinical practice, patient population you serve.",
+        exp:"Clinical Experience",
+        skills:"Clinical Skills",
+        skillsHint:"Procedures, equipment, EMR systems, patient care specialties.",
+        extra:"Licenses & Certifications",
+        extraHint:"Board licenses, BLS/ACLS, specialty certifications, with dates."
+      }
+    },
+    {
+      id:"edu", code:"ED-03", name:"Education & Teaching",
+      keywords:["teacher","tutor","professor","lecturer","instructor","principal","educator","curriculum","school"],
+      labels:{
+        summary:"Teaching Philosophy Summary",
+        summaryHint:"Subject area, grade levels, teaching approach in 2–3 lines.",
+        exp:"Teaching Experience",
+        skills:"Teaching Skills",
+        skillsHint:"Subjects, grade levels, classroom tech, curriculum design.",
+        extra:"Certifications & Professional Development",
+        extraHint:"Teaching license, workshops, further studies."
+      }
+    },
+    {
+      id:"biz", code:"BF-04", name:"Business, Finance & Admin",
+      keywords:["accountant","finance","analyst","manager","administrator","hr","human resources","marketing","sales","operations","consultant","auditor","banker","procurement"],
+      labels:{
+        summary:"Professional Summary",
+        summaryHint:"Your function, industry, and a headline achievement — 2–3 lines.",
+        exp:"Work Experience",
+        skills:"Core Skills",
+        skillsHint:"Tools (Excel, SAP, Salesforce), methods, domains of expertise.",
+        extra:"Certifications & Achievements",
+        extraHint:"Professional certifications (CPA, PMP, etc.), awards, key results."
+      }
+    },
+    {
+      id:"creative", code:"CR-05", name:"Creative & Design",
+      keywords:["designer","graphic","writer","artist","illustrator","photographer","videographer","copywriter","animator","creative director","ux designer","content creator"],
+      labels:{
+        summary:"Creative Profile",
+        summaryHint:"Your medium, style, and the kind of work you want more of.",
+        exp:"Experience",
+        skills:"Tools & Techniques",
+        skillsHint:"Software (Figma, Adobe CC, Blender), techniques, mediums.",
+        extra:"Portfolio & Selected Work",
+        extraHint:"Portfolio link, notable projects, exhibitions, publications."
+      }
+    },
+    {
+      id:"trade", code:"TR-06", name:"Skilled Trades",
+      keywords:["electrician","plumber","mechanic","carpenter","welder","technician","construction","hvac","machinist","fitter","installer"],
+      labels:{
+        summary:"Trade Summary",
+        summaryHint:"Your trade, years in the field, types of jobs you handle.",
+        exp:"Work Experience",
+        skills:"Skills & Equipment",
+        skillsHint:"Tools, equipment, systems you work on, safety certifications.",
+        extra:"Licenses & Safety Certifications",
+        extraHint:"Trade license, OSHA/safety cards, apprenticeship completion."
+      }
+    },
+    {
+      id:"service", code:"CS-07", name:"Customer Service, Retail & Hospitality",
+      keywords:["customer service","retail","cashier","waiter","waitress","barista","hotel","hospitality","receptionist","call center","support agent","chef","cook"],
+      labels:{
+        summary:"Professional Summary",
+        summaryHint:"Your service area, years of experience, what you're known for.",
+        exp:"Work Experience",
+        skills:"Skills",
+        skillsHint:"POS systems, languages spoken, service specialties.",
+        extra:"Training & Extras",
+        extraHint:"Food safety cards, hospitality training, awards."
+      }
+    },
+    {
+      id:"legal", code:"LG-08", name:"Legal",
+      keywords:["lawyer","attorney","paralegal","legal counsel","solicitor","barrister","compliance officer"],
+      labels:{
+        summary:"Professional Summary",
+        summaryHint:"Practice area, years of experience, notable focus.",
+        exp:"Legal Experience",
+        skills:"Practice Areas & Skills",
+        skillsHint:"Practice areas, litigation/transactional, research tools.",
+        extra:"Bar Admissions & Certifications",
+        extraHint:"Bar admissions, CLEs, publications."
+      }
+    },
+    {
+      id:"science", code:"SC-09", name:"Science & Research",
+      keywords:["researcher","scientist","lab","research assistant","phd","postdoc","biologist","chemist","physicist","data researcher"],
+      labels:{
+        summary:"Research Summary",
+        summaryHint:"Field of study, methods, research focus in 2–3 lines.",
+        exp:"Research Experience",
+        skills:"Techniques & Tools",
+        skillsHint:"Lab techniques, software, instruments, methodologies.",
+        extra:"Publications & Grants",
+        extraHint:"Papers, conference talks, grants, patents."
+      }
+    },
+    {
+      id:"general", code:"GEN-00", name:"General / Professional",
+      keywords:[],
+      labels:{
+        summary:"Professional Summary",
+        summaryHint:"2–3 lines on your background and what you're looking for next.",
+        exp:"Experience",
+        skills:"Skills",
+        skillsHint:"Comma-separated list of your strongest skills.",
+        extra:"Certifications & Extras",
+        extraHint:"Anything else worth including."
+      }
+    }
+  ];
+
+  const CURATED_HUBS = [
+    {name:"Indeed — Resume Samples by Field", url:"https://www.indeed.com/career-advice/resume-samples"},
+    {name:"Novorésumé — Resume Examples", url:"https://novoresume.com/resume-examples"},
+    {name:"Resume Genius — Resume Samples", url:"https://resumegenius.com/resume-samples"},
+    {name:"Zety — Resume Examples", url:"https://zety.com/resume-examples"}
+  ];
+
+  let currentCategory = CATEGORIES[CATEGORIES.length-1]; // general by default
+
+  function matchCategory(text){
+    const t = text.trim().toLowerCase();
+    if(!t) return CATEGORIES[CATEGORIES.length-1];
+    for(const cat of CATEGORIES){
+      for(const kw of cat.keywords){
+        if(t.includes(kw)) return cat;
+      }
+    }
+    return CATEGORIES[CATEGORIES.length-1];
+  }
+
+  function renderDrawerTabs(){
+    const ul = document.getElementById('drawerTabs');
+    ul.innerHTML = '';
+    CATEGORIES.forEach(cat=>{
+      const li = document.createElement('li');
+      const btn = document.createElement('button');
+      btn.textContent = cat.code;
+      btn.title = cat.name;
+      btn.type = 'button';
+      if(cat.id === currentCategory.id) btn.classList.add('active');
+      btn.addEventListener('click', ()=>{
+        document.getElementById('occInput').value = cat.name;
+        setCategory(cat);
+      });
+      li.appendChild(btn);
+      ul.appendChild(li);
+    });
+  }
+
+  function setCategory(cat){
+    currentCategory = cat;
+    document.getElementById('matchLine').innerHTML =
+      '<span class="match-code">'+cat.code+'</span> matched to ' + cat.name;
+    document.getElementById('deskSubhead').textContent = cat.name + ' draft';
+    document.getElementById('catCode').textContent = cat.code;
+
+    document.getElementById('summaryLabel').textContent = cat.labels.summary;
+    document.getElementById('summaryHint').textContent = cat.labels.summaryHint;
+    document.getElementById('fSummary').placeholder = cat.labels.summaryHint;
+
+    document.getElementById('expLabel').textContent = cat.labels.exp;
+    document.getElementById('pvExpLabel').textContent = cat.labels.exp;
+
+    document.getElementById('skillsLabel').textContent = cat.labels.skills;
+    document.getElementById('skillsHint').textContent = cat.labels.skillsHint;
+    document.getElementById('fSkills').placeholder = cat.labels.skillsHint;
+    document.getElementById('pvSkillsLabel').textContent = cat.labels.skills;
+
+    document.getElementById('extraLabel').textContent = cat.labels.extra;
+    document.getElementById('extraHint').textContent = cat.labels.extraHint;
+    document.getElementById('fExtra').placeholder = cat.labels.extraHint;
+    document.getElementById('pvExtraLabel').textContent = cat.labels.extra;
+
+    renderDrawerTabs();
+    renderSearchLinks();
+  }
+
+  function renderSearchLinks(){
+    const occ = document.getElementById('occInput').value.trim() || currentCategory.name;
+    const q = encodeURIComponent(occ + ' resume examples');
+    const qImg = encodeURIComponent(occ + ' CV template');
+    const links = [
+      {name:"Google — \""+occ+" resume examples\"", url:"https://www.google.com/search?q="+q},
+      {name:"Bing — \""+occ+" resume examples\"", url:"https://www.bing.com/search?q="+q},
+      {name:"Google Images — \""+occ+" CV template\"", url:"https://www.google.com/search?tbm=isch&q="+qImg}
+    ];
+    const ul = document.getElementById('searchLinks');
+    ul.innerHTML = '';
+    links.forEach(l=>{
+      const li = document.createElement('li');
+      const a = document.createElement('a');
+      a.href = l.url; a.target = "_blank"; a.rel = "noopener";
+      a.innerHTML = '<span>'+l.name+'</span><span class="arrow">↗</span>';
+      li.appendChild(a);
+      ul.appendChild(li);
+    });
+  }
+
+  function renderCuratedLinks(){
+    const ul = document.getElementById('curatedLinks');
+    ul.innerHTML = '';
+    CURATED_HUBS.forEach(l=>{
+      const li = document.createElement('li');
+      const a = document.createElement('a');
+      a.href = l.url; a.target = "_blank"; a.rel = "noopener";
+      a.innerHTML = '<span>'+l.name+'</span><span class="arrow">↗</span>';
+      li.appendChild(a);
+      ul.appendChild(li);
+    });
+  }
+
+  document.getElementById('occInput').addEventListener('input', (e)=>{
+    const cat = matchCategory(e.target.value);
+    setCategory(cat);
+  });
+
+  // ---------------- REPEATABLE ENTRIES ----------------
+  let expEntries = [];
+  let eduEntries = [];
+  let expCounter = 0, eduCounter = 0;
+
+  function addExpEntry(prefill){
+    const id = 'exp'+(expCounter++);
+    expEntries.push({id, title:'', org:'', dates:'', desc:'', ...(prefill||{})});
+    renderExpForm();
+  }
+  function addEduEntry(prefill){
+    const id = 'edu'+(eduCounter++);
+    eduEntries.push({id, degree:'', school:'', dates:'', ...(prefill||{})});
+    renderEduForm();
+  }
+
+  function renderExpForm(){
+    const wrap = document.getElementById('expList');
+    wrap.innerHTML = '';
+    expEntries.forEach((entry)=>{
+      const card = document.createElement('div');
+      card.className = 'entry-card';
+      card.innerHTML = `
+        <button type="button" class="remove" data-id="${entry.id}">remove ✕</button>
+        <label>Title / Role</label>
+        <input type="text" data-field="title" data-id="${entry.id}" value="${escapeAttr(entry.title)}" placeholder="Senior Backend Developer">
+        <div class="grid2">
+          <div><label>Organization</label><input type="text" data-field="org" data-id="${entry.id}" value="${escapeAttr(entry.org)}" placeholder="Company / Hospital / School"></div>
+          <div><label>Dates</label><input type="text" data-field="dates" data-id="${entry.id}" value="${escapeAttr(entry.dates)}" placeholder="2022 — Present"></div>
+        </div>
+        <label>Description</label>
+        <textarea data-field="desc" data-id="${entry.id}" placeholder="What you did and the outcome. One line per bullet.">${escapeHtml(entry.desc)}</textarea>
+      `;
+      wrap.appendChild(card);
+    });
+    wrap.querySelectorAll('input,textarea').forEach(el=>{
+      el.addEventListener('input', (e)=>{
+        const id = e.target.dataset.id, field = e.target.dataset.field;
+        const entry = expEntries.find(x=>x.id===id);
+        entry[field] = e.target.value;
+        renderPreview();
+      });
+    });
+    wrap.querySelectorAll('.remove').forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        expEntries = expEntries.filter(x=>x.id !== e.target.dataset.id);
+        renderExpForm(); renderPreview();
+      });
+    });
+    renderPreview();
+  }
+
+  function renderEduForm(){
+    const wrap = document.getElementById('eduList');
+    wrap.innerHTML = '';
+    eduEntries.forEach((entry)=>{
+      const card = document.createElement('div');
+      card.className = 'entry-card';
+      card.innerHTML = `
+        <button type="button" class="remove" data-id="${entry.id}">remove ✕</button>
+        <label>Degree / Qualification</label>
+        <input type="text" data-field="degree" data-id="${entry.id}" value="${escapeAttr(entry.degree)}" placeholder="B.Eng. Computer Engineering">
+        <div class="grid2">
+          <div><label>School</label><input type="text" data-field="school" data-id="${entry.id}" value="${escapeAttr(entry.school)}" placeholder="University name"></div>
+          <div><label>Dates</label><input type="text" data-field="dates" data-id="${entry.id}" value="${escapeAttr(entry.dates)}" placeholder="2021 — 2025"></div>
+        </div>
+      `;
+      wrap.appendChild(card);
+    });
+    wrap.querySelectorAll('input').forEach(el=>{
+      el.addEventListener('input', (e)=>{
+        const id = e.target.dataset.id, field = e.target.dataset.field;
+        const entry = eduEntries.find(x=>x.id===id);
+        entry[field] = e.target.value;
+        renderPreview();
+      });
+    });
+    wrap.querySelectorAll('.remove').forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        eduEntries = eduEntries.filter(x=>x.id !== e.target.dataset.id);
+        renderEduForm(); renderPreview();
+      });
+    });
+    renderPreview();
+  }
+
+  document.getElementById('addExp').addEventListener('click', ()=>addExpEntry());
+  document.getElementById('addEdu').addEventListener('click', ()=>addEduEntry());
+
+  function escapeHtml(str){
+    return (str||'').replace(/[&<>]/g, c=>({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[c]));
+  }
+  function escapeAttr(str){
+    return escapeHtml(str).replace(/"/g,'&quot;');
+  }
+
+  // ---------------- LIVE PREVIEW ----------------
+  const simpleFields = ['fName','fRole','fEmail','fPhone','fLocation','fLink','fSummary','fSkills','fExtra'];
+  simpleFields.forEach(id=>{
+    document.getElementById(id).addEventListener('input', renderPreview);
+  });
+
+  function renderPreview(){
+    const name = document.getElementById('fName').value.trim();
+    const role = document.getElementById('fRole').value.trim();
+    const email = document.getElementById('fEmail').value.trim();
+    const phone = document.getElementById('fPhone').value.trim();
+    const location = document.getElementById('fLocation').value.trim();
+    const link = document.getElementById('fLink').value.trim();
+    const summary = document.getElementById('fSummary').value.trim();
+    const skills = document.getElementById('fSkills').value.trim();
+    const extra = document.getElementById('fExtra').value.trim();
+
+    document.getElementById('pvName').textContent = name || 'Your Name';
+    document.getElementById('pvRole').textContent = role || currentCategory.name;
+
+    const contactBits = [email, phone, location, link].filter(Boolean);
+    const contactWrap = document.getElementById('pvContact');
+    contactWrap.innerHTML = contactBits.map(b=>'<span>'+escapeHtml(b)+'</span>').join('');
+
+    // summary
+    document.getElementById('pvSummarySec').style.display = summary ? '' : 'none';
+    document.getElementById('pvSummary').textContent = summary;
+    document.getElementById('pvSummaryLabel').textContent = currentCategory.labels.summary;
+
+    // experience
+    const expWrap = document.getElementById('pvExpList');
+    const visibleExp = expEntries.filter(e=>e.title||e.org||e.desc);
+    document.getElementById('pvExpSec').style.display = visibleExp.length ? '' : 'none';
+    expWrap.innerHTML = visibleExp.map(e=>`
+      <div class="exp-item">
+        <div class="row-between">
+          <span class="title-strong">${escapeHtml(e.title)}${e.org ? ' — '+escapeHtml(e.org) : ''}</span>
+          <span class="meta">${escapeHtml(e.dates)}</span>
+        </div>
+        ${e.desc ? '<div class="desc">'+escapeHtml(e.desc)+'</div>' : ''}
+      </div>
+    `).join('');
+
+    // education
+    const eduWrap = document.getElementById('pvEduList');
+    const visibleEdu = eduEntries.filter(e=>e.degree||e.school);
+    document.getElementById('pvEduSec').style.display = visibleEdu.length ? '' : 'none';
+    eduWrap.innerHTML = visibleEdu.map(e=>`
+      <div class="edu-item">
+        <div class="row-between">
+          <span class="title-strong">${escapeHtml(e.degree)}</span>
+          <span class="meta">${escapeHtml(e.dates)}</span>
+        </div>
+        ${e.school ? '<div class="desc">'+escapeHtml(e.school)+'</div>' : ''}
+      </div>
+    `).join('');
+
+    // skills
+    const skillWrap = document.getElementById('pvSkills');
+    document.getElementById('pvSkillsSec').style.display = skills ? '' : 'none';
+    skillWrap.innerHTML = skills.split(',').map(s=>s.trim()).filter(Boolean)
+      .map(s=>'<span class="chip">'+escapeHtml(s)+'</span>').join('');
+
+    // extra
+    document.getElementById('pvExtraSec').style.display = extra ? '' : 'none';
+    document.getElementById('pvExtra').textContent = extra;
+  }
+
+  // ---------------- EXPORT ----------------
+  document.getElementById('printBtn').addEventListener('click', ()=>window.print());
+
+  document.getElementById('downloadBtn').addEventListener('click', ()=>{
+    const cvHtml = document.getElementById('cv').outerHTML;
+    const styles = document.querySelector('style').textContent;
+    const name = document.getElementById('fName').value.trim() || 'cv';
+    const doc = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escapeHtml(name)} — CV</title>
+      <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+      <style>${styles} body{background:#fff;padding:40px;} #cv{box-shadow:none;}</style>
+      </head><body>${cvHtml}</body></html>`;
+    const blob = new Blob([doc], {type:'text/html'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = (name.replace(/\s+/g,'_') || 'cv') + '.html';
+    a.click();
+  });
+
+  // ---------------- INIT ----------------
+  renderCuratedLinks();
+  setCategory(currentCategory);
+  addExpEntry();
+  addEduEntry();
+  renderPreview();
+
+})();
+</script>
+</body>
+</html>
