@@ -1,4 +1,5 @@
 # FieldDraft
+<img width="1920" height="1080" alt="Screenshot from 2026-09-21 19-15-01" src="https://github.com/user-attachments/assets/f88de1b2-3b2f-430c-98d7-8bd5a6cf0224" />
 
 A free, open-source CV builder that adapts to your occupation — single HTML file, no backend, no API keys, no accounts, no tracking. Your data never leaves the page.
 
